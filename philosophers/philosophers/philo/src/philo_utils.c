@@ -57,6 +57,11 @@ int	start_simulation(t_data *data)
 	int			i;
 
 	i = -1;
+	if (data->must_eat == 0)
+	{
+		printf("Todos los filósofos han comido 0 veces. Fin de la simulación.\n");
+		return (0);
+	}
 	while (++i < data->num_philos)
 	{
 		if (pthread_create(&data->philos[i].thread,

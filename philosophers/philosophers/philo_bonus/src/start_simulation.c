@@ -58,6 +58,11 @@ void	start_simulation(t_data *data)
 	int	should_kill;
 
 	should_kill = 0;
+	if (data->must_eat == 0)
+	{
+		printf("Todos los filósofos han comido 0 veces. Fin de la simulacion.\n");
+		return ;
+	}
 	create_processes(data);
 	wait_for_termination(data, &should_kill);
 	if (should_kill)
