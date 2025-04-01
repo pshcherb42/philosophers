@@ -1,55 +1,64 @@
 #!/bin/bash
 
-# === CONFIG ===
-PHILO_DIR="./philo"
-PHILO_BONUS_DIR="./philo_bonus"
-PHILO_EXEC="$PHILO_DIR/philo"
-PHILO_BONUS_EXEC="$PHILO_BONUS_DIR/philo_bonus"
-LOG_DIR="./test_logs"
-mkdir -p $LOG_DIR
+# Colores para output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+CYAN='\033[0;36m'
+NC='\033[0m'
 
-# === FUNCIONES DE COMPILACION Y LIMPIEZA ===
-compile_projects() {
-	echo "🔨 Compilando philo..."
-	make -C $PHILO_DIR >/dev/null || { echo "❌ Error compilando philo"; exit 1; }
-	echo "🔨 Compilando philo_bonus..."
-	make -C $PHILO_BONUS_DIR >/dev/null || { echo "❌ Error compilando philo_bonus"; exit 1; }
+# Crear carpeta de logs
+mkdir -p test_logs
+
+echo -e "${CYAN}🔨Compilando philo...${NC}"
+make -C philo > /dev/null
+
+echo -e "${CYAN}🔨Compilando philo_bonus...${NC}"
+make -C philo_bonus > /dev/null
+
+echo -e "\n🚨${RED}Testing ERRORES${NC}"
+
+# Test E1: Numero de filósofos invalido
+echo -e "${CYAN}Test E1: ./philo/philo 0 800 200 200${NC}"
+./philo/philo 0 800 200 200 > test_logs/philo_error1.txt 2>&1
+
+# Test E2: Tiempo de vida inválido
+echo -e "${CYAN}Test E2: ./philo/philo 5 0 200 200${NC}"
+./philo/philo 5 0 200 200 > test_logs/philo_error2.txt 2>&1
+
+# Test E3: Valor 0 en meals (deberia salir al instante)
+echo -e "${CYAN}Test E3: ./philo/philo 5 800 200 200 0${NC}"
+./philo/philo 5 800 200 200 0 > test_logs/philo_bonus_zero_meals.txt 2>&1
+
+# Test E4: Simulacion fallo de semaforo 
+echo -e "${CYAN}Test E4: Simulacion fallo de sem_open${NC}"
+cat > sem_test.c <<EOF
+#include <stdio.h>
+#include <stdlib.h>
+#include <semaphore.h>
+#include <fcntl.h>
+
+int main()
+{
+	sem_unlink("/forks_test");
+	sem_t *forks = sem_open("/forks_test", 0);
+	if (forks == SEM_FAILED)
+	{
+		printf("Error: sem_open failed\n");
+		exit(1);
+	}
+	sem_close(forks);
+	return (0);
 }
+EOF
 
-cleanup() {
-	echo "🧹 Limpiando archivos objeto y binarios..."
-	make -C $PHILO_DIR fclean >/dev/null
-	make -C $PHILO_BONUS_DIR fclean >/dev/null
-}
+# Compilar y guardar test de sem_open
+gcc sem_test.c -o sem_test 
+./sem_test > test_logs/sem_test_output.txt 2>&1
+rm -f sem_test sem_test.c
 
-run_test() {
-	echo "Test $1: $2"
-	$2 > "$LOG_DIR/$1.out"
-}
+# Limpiar binarios y objetos
+echo -e "\n${CYAN}🧹Limpiando archivos objeto y binarios...${NC}"
+make -C philo fclean > /dev/null
+make -C philo_bonus fclean > /dev/null
 
-# === TESTS DE ERRORES ===
-run_error_tests() {
-	echo ""
-	echo "🚨 Testing ERRORES"
-	run_test "E1" "$PHILO_EXEC 0 800 200 200"
-	run_test "E2" "$PHILO_EXEC 5 0 200 200"
-	run_test "E3" "$PHILO_BONUS_EXEC 5 800 200 200 0"
-
-	# Simulando error de sem_open con nombre ya tomado
-	sem_name="/forks_test"
-	sem_open_code="sem_unlink(\"$sem_name\"); sem_t *forks = sem_open(\"$sem_name\", 0); if (forks == SEM_FAILED) { printf(\"Error: sem_open failed\\n\"); exit(1); }"
-	echo -e "#include <stdio.h>\n#include <stdlib.h>\n#include <semaphore.h>\n#include <fcntl.h>\n
-int main() { $sem_open_code return 0; }" > sem_test.c
-	gcc sem_test.c -o sem_test && ./sem_test > "$LOG_DIR/E4.out"
-	rm sem_test sem_test.c
-
-	# No podemos simular malloc o pthread_create fallando sin cambiar código
-	echo "Test E5: Simulación de malloc fallido (requiere modificación del código)" > "$LOG_DIR/E5.out"
-	echo "Test E6: Simulación de pthread_create fallido (requiere modificación del código)" > "$LOG_DIR/E6.out"
-}
-
-# === MAIN ===
-compile_projects
-run_error_tests
-cleanup
-echo "✅ Tests completados. Resultados en carpeta $LOG_DIR"
+echo -e "${GREEN}✅ Test completados. Resultados en carpeta ./test_logs${NC}"
