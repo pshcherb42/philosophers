@@ -63,6 +63,7 @@ void	start_simulation(t_data *data)
 		printf("Todos han comido 0 veces. Fin de la simulacion.\n");
 		return ;
 	}
+	data->start_time = get_time();
 	create_processes(data);
 	wait_for_termination(data, &should_kill);
 	if (should_kill)
